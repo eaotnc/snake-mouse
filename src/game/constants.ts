@@ -1,0 +1,10 @@
+export const BOARD_W = 960
+export const BOARD_H = 600
+export const LEVEL_QUOTAS = [5, 10, 15, 20, 25] as const
+export const START_LENGTH = 3
+export const SEGMENT_PX = 36
+export const PENALTY_MS = 400
+export const HEAD_RADIUS = 13
+export const HEAD_HIT_RADIUS = 10
+export const BAIT_RADIUS = 12
+export const LATCH_RADIUS = 36
