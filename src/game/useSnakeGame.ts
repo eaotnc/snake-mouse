@@ -21,7 +21,7 @@ import {
 } from './draw'
 import { MAZES, type Shape } from './mazes'
 import { dist, trimPath, type Point } from './path'
-import { playSound, unlockAudio } from './sound'
+import { playSound, startMusic, stopMusic, unlockAudio } from './sound'
 
 export type Phase = 'menu' | 'playing' | 'levelClear' | 'won' | 'gameover'
 
@@ -174,13 +174,11 @@ function pickBait(sim: Sim): Point | null {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
-function applyMaze(sim: Sim, levelIndex: number, keepLength: boolean) {
+function applyMaze(sim: Sim, levelIndex: number) {
   const maze = MAZES[levelIndex]
   sim.level = levelIndex
-  if (!keepLength) {
-    sim.length = START_LENGTH
-    sim.baits = 0
-  }
+  sim.length = START_LENGTH
+  sim.baits = 0
   sim.walls = maze.walls
   sim.mask = buildMask(maze.walls)
   sim.openCells = reachableCells(sim.mask, maze.start)
@@ -213,6 +211,7 @@ function penalize(
     sim.length = 0
     sim.phase = 'gameover'
     sim.latched = false
+    stopMusic()
     playSound('gameover')
   } else {
     playSound(cause)
@@ -235,6 +234,7 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
     sim.latched = false
     const won = sim.level >= LEVEL_QUOTAS.length - 1
     sim.phase = won ? 'won' : 'levelClear'
+    if (won) stopMusic()
     playSound(won ? 'win' : 'clear')
   } else {
     sim.bait = pickBait(sim)
@@ -279,25 +279,30 @@ export function useSnakeGame() {
     sim.phase = 'playing'
     sim.clicks = 0
     sim.hits = 0
-    applyMaze(sim, 0, false)
+    applyMaze(sim, 0)
     publish(sim, setHud)
-    void unlockAudio().then(() => playSound('start'))
+    void unlockAudio().then(() => {
+      playSound('start')
+      startMusic()
+    })
   }, [])
 
   const nextLevel = useCallback(() => {
     const sim = simRef.current
     if (sim.phase !== 'levelClear') return
-    sim.baits = 0
-    applyMaze(sim, sim.level + 1, true)
+    applyMaze(sim, sim.level + 1)
     sim.phase = 'playing'
     publish(sim, setHud)
-    void unlockAudio().then(() => playSound('start'))
+    void unlockAudio().then(() => {
+      playSound('start')
+      startMusic()
+    })
   }, [])
 
   useEffect(() => {
     const sim = simRef.current
     sim.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    applyMaze(sim, 0, false)
+    applyMaze(sim, 0)
     sim.phase = 'menu'
     publish(sim, setHud)
 

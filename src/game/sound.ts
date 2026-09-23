@@ -21,6 +21,7 @@ export function getMuted() {
 
 export function setMuted(value: boolean) {
   muted = value
+  if (value) stopMusic()
   try {
     localStorage.setItem(STORAGE_KEY, value ? '1' : '0')
   } catch {
@@ -175,4 +176,142 @@ function getAudio() {
   if (typeof window === 'undefined' || !window.AudioContext) return null
   if (!audio) audio = new AudioContext()
   return audio
+}
+
+const BPM = 80
+const STEP = 60 / BPM / 4
+const LEAD = [76, 0, 79, 81, 84, 81, 79, 76, 79, 81, 84, 86, 88, 86, 84, 81]
+const BASS = [48, 0, 0, 0, 55, 0, 0, 48, 53, 0, 0, 0, 55, 0, 48, 0]
+
+let musicGain: GainNode | null = null
+let musicTimer = 0
+let musicStep = 0
+let musicTime = 0
+let musicOn = false
+
+export function startMusic() {
+  if (muted || musicOn) return
+  const ctx = getAudio()
+  if (!ctx || ctx.state !== 'running') return
+  musicOn = true
+  musicGain = ctx.createGain()
+  musicGain.gain.setValueAtTime(0.9, ctx.currentTime)
+  musicGain.connect(ctx.destination)
+  musicStep = 0
+  musicTime = ctx.currentTime + 0.06
+  window.clearInterval(musicTimer)
+  musicTimer = window.setInterval(scheduleMusic, 40)
+  scheduleMusic()
+}
+
+export function stopMusic() {
+  musicOn = false
+  window.clearInterval(musicTimer)
+  musicTimer = 0
+  const ctx = audio
+  const gain = musicGain
+  musicGain = null
+  if (!ctx || !gain) return
+  const now = ctx.currentTime
+  gain.gain.cancelScheduledValues(now)
+  gain.gain.setValueAtTime(gain.gain.value, now)
+  gain.gain.linearRampToValueAtTime(0.0001, now + 0.12)
+  window.setTimeout(() => gain.disconnect(), 180)
+}
+
+function scheduleMusic() {
+  const ctx = audio
+  if (!ctx || !musicOn || !musicGain) return
+  const horizon = ctx.currentTime + 0.25
+  while (musicTime < horizon) {
+    const index = musicStep % LEAD.length
+    if (index % 8 === 0) musicKick(ctx, musicTime)
+    if (index % 8 === 4) musicClap(ctx, musicTime)
+    musicHat(ctx, musicTime, index % 2 === 0 ? 0.035 : 0.02)
+    const lead = LEAD[index]
+    if (lead) musicNote(ctx, midi(lead), musicTime, STEP * 0.92, 'square', 0.045)
+    const bass = BASS[index]
+    if (bass) musicNote(ctx, midi(bass), musicTime, STEP * 1.5, 'triangle', 0.09)
+    musicTime += STEP
+    musicStep += 1
+  }
+}
+
+function midi(note: number) {
+  return 440 * 2 ** ((note - 69) / 12)
+}
+
+function musicNote(
+  ctx: AudioContext,
+  frequency: number,
+  when: number,
+  duration: number,
+  type: OscillatorType,
+  peak: number,
+) {
+  if (!musicGain) return
+  const osc = ctx.createOscillator()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.setValueAtTime(frequency * 4, when)
+  filter.frequency.exponentialRampToValueAtTime(Math.max(180, frequency), when + duration)
+  osc.type = type
+  osc.frequency.setValueAtTime(frequency, when)
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0.0001, when)
+  gain.gain.exponentialRampToValueAtTime(peak, when + 0.012)
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + duration)
+  osc.connect(filter)
+  filter.connect(gain)
+  gain.connect(musicGain)
+  osc.start(when)
+  osc.stop(when + duration + 0.02)
+}
+
+function musicKick(ctx: AudioContext, when: number) {
+  if (!musicGain) return
+  const osc = ctx.createOscillator()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(150, when)
+  osc.frequency.exponentialRampToValueAtTime(48, when + 0.12)
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0.16, when)
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.16)
+  osc.connect(gain)
+  gain.connect(musicGain)
+  osc.start(when)
+  osc.stop(when + 0.18)
+}
+
+function musicHat(ctx: AudioContext, when: number, peak: number) {
+  if (!musicGain) return
+  const src = ctx.createBufferSource()
+  src.buffer = getNoise(ctx)
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'highpass'
+  filter.frequency.value = 7000
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(peak, when)
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.04)
+  src.connect(filter)
+  filter.connect(gain)
+  gain.connect(musicGain)
+  src.start(when, Math.random() * 0.8, 0.04)
+}
+
+function musicClap(ctx: AudioContext, when: number) {
+  if (!musicGain) return
+  const src = ctx.createBufferSource()
+  src.buffer = getNoise(ctx)
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1800
+  filter.Q.value = 0.7
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0.07, when)
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.1)
+  src.connect(filter)
+  filter.connect(gain)
+  gain.connect(musicGain)
+  src.start(when, Math.random() * 0.7, 0.1)
 }

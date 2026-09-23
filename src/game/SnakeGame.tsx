@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { LEVEL_QUOTAS } from './constants'
-import { getMuted, loadMuted, setMuted, unlockAudio } from './sound'
+import { getMuted, loadMuted, setMuted, startMusic, unlockAudio } from './sound'
 import { useSnakeGame, type Hud } from './useSnakeGame'
 
 export default function SnakeGame() {
@@ -12,7 +12,11 @@ export default function SnakeGame() {
     const next = !getMuted()
     setMuted(next)
     setMutedOn(next)
-    if (!next) void unlockAudio()
+    if (!next) {
+      void unlockAudio().then(() => {
+        if (hud.phase === 'playing' || hud.phase === 'levelClear') startMusic()
+      })
+    }
   }
 
   return (
