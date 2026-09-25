@@ -134,6 +134,48 @@ canvas {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
 }
 
+.save-score {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.save-score input {
+  width: 140px;
+  border: 1px solid rgba(231, 242, 234, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  padding: 8px 12px;
+  font: inherit;
+}
+
+.board {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.board li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.board strong {
+  color: var(--lime);
+}
+
+.board-note {
+  color: #ff8d7a;
+}
+
 .card h2 {
   margin: 0 0 14px;
   font-family: Syne, Outfit, sans-serif;

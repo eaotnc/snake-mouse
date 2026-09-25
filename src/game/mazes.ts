@@ -37,7 +37,7 @@ function startPoint(): Point {
   if (BOARD_H > BOARD_W) return { x: Math.round(BOARD_W / 2), y: 180 }
   return { x: 150, y: 300 }
 }
-const MAX_BARS = 14
+const MAX_BARS = 8
 
 export function generateMaze(level: number): Maze {
   const count = Math.min(MAX_BARS, 3 + level)

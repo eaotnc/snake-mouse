@@ -4,9 +4,12 @@ import {
   BOARD_H,
   BOARD_W,
   BAIT_TTL_MS,
+  BITE_TIME_MS,
   boardIsPortrait,
   HEAD_HIT_RADIUS,
   LATCH_RADIUS,
+  LEVEL_TIME_MS,
+  MAX_LENGTH,
   PENALTY_MS,
   quotaFor,
   SEGMENT_PX,
@@ -24,7 +27,7 @@ import {
 } from './draw'
 import { generateMaze, type Shape } from './mazes'
 import { dist, trimPath, type Point } from './path'
-import { playSound, startMusic, stopMusic, unlockAudio } from './sound'
+import { playSound, setMusicBpm, startMusic, stopMusic, unlockAudio } from './sound'
 
 export type Phase = 'menu' | 'playing' | 'levelClear' | 'gameover'
 
@@ -36,6 +39,8 @@ export type Hud = {
   quota: number
   clicks: number
   hits: number
+  score: number
+  timeLeft: number
 }
 
 type Sim = {
@@ -62,6 +67,10 @@ type Sim = {
   reduceMotion: boolean
   clicks: number
   hits: number
+  score: number
+  timeLeftMs: number
+  clockAt: number
+  shownTime: number
 }
 
 const initialHud: Hud = {
@@ -72,6 +81,8 @@ const initialHud: Hud = {
   quota: quotaFor(0),
   clicks: 0,
   hits: 0,
+  score: 0,
+  timeLeft: LEVEL_TIME_MS / 1000,
 }
 
 function createSim(): Sim {
@@ -99,6 +110,10 @@ function createSim(): Sim {
     reduceMotion: false,
     clicks: 0,
     hits: 0,
+    score: 0,
+    timeLeftMs: LEVEL_TIME_MS,
+    clockAt: 0,
+    shownTime: LEVEL_TIME_MS / 1000,
   }
 }
 
@@ -111,6 +126,8 @@ function publish(sim: Sim, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) 
     quota: quotaFor(sim.level),
     clicks: sim.clicks,
     hits: sim.hits,
+    score: sim.score,
+    timeLeft: Math.ceil(sim.timeLeftMs / 1000),
   }
   setHud((prev) =>
     prev.phase === next.phase &&
@@ -119,7 +136,9 @@ function publish(sim: Sim, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) 
     prev.baits === next.baits &&
     prev.quota === next.quota &&
     prev.clicks === next.clicks &&
-    prev.hits === next.hits
+    prev.hits === next.hits &&
+    prev.score === next.score &&
+    prev.timeLeft === next.timeLeft
       ? prev
       : next,
   )
@@ -200,6 +219,10 @@ function applyMaze(sim: Sim, levelIndex: number) {
   sim.path = seeded.path
   sim.facing = seeded.facing
   placeBait(sim, performance.now())
+  sim.timeLeftMs = LEVEL_TIME_MS
+  sim.clockAt = 0
+  sim.shownTime = LEVEL_TIME_MS / 1000
+  setMusicBpm(100)
   sim.ripples = []
   sim.penaltyReadyAt = 0
 }
@@ -231,6 +254,30 @@ function penalize(
   publish(sim, setHud)
 }
 
+function tickClock(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
+  if (sim.phase !== 'playing') return
+  if (sim.clockAt > 0) sim.timeLeftMs -= now - sim.clockAt
+  sim.clockAt = now
+  const seconds = Math.max(0, sim.timeLeftMs / 1000)
+  setMusicBpm(seconds <= 15 ? 100 + ((15 - seconds) / 15) * 60 : 100)
+  if (sim.timeLeftMs <= 0) {
+    sim.timeLeftMs = 0
+    sim.phase = 'gameover'
+    sim.latched = false
+    sim.bait = null
+    setMusicBpm(100)
+    stopMusic()
+    playSound('gameover')
+    publish(sim, setHud)
+    return
+  }
+  const shown = Math.ceil(sim.timeLeftMs / 1000)
+  if (shown !== sim.shownTime) {
+    sim.shownTime = shown
+    publish(sim, setHud)
+  }
+}
+
 function expireBait(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
   if (sim.phase !== 'playing' || !sim.bait || now < sim.baitUntil) return
   const previous = sim.bait
@@ -259,7 +306,10 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
   const baitPoint = { x: sim.bait.x, y: sim.bait.y + baitBob(now, sim.reduceMotion) }
   if (dist(head, baitPoint) > HEAD_HIT_RADIUS + BAIT_RADIUS) return
 
-  sim.length += 1
+  const elapsed = now - (sim.baitUntil - BAIT_TTL_MS)
+  sim.score += elapsed <= 1000 ? 2 : 1
+  if (sim.length < MAX_LENGTH) sim.length += 1
+  sim.timeLeftMs += BITE_TIME_MS
   sim.baits += 1
   sim.ripples.push({ x: sim.bait.x, y: baitPoint.y, born: now })
   if (sim.baits >= quotaFor(sim.level)) {
@@ -310,6 +360,7 @@ export function useSnakeGame() {
     sim.phase = 'playing'
     sim.clicks = 0
     sim.hits = 0
+    sim.score = 0
     applyMaze(sim, 0)
     publish(sim, setHud)
     void unlockAudio().then(() => {
@@ -349,13 +400,18 @@ export function useSnakeGame() {
         const hits = sim.hits
         const length = sim.length
         const baits = sim.baits
+        const score = sim.score
+        const timeLeftMs = sim.timeLeftMs
         applyMaze(sim, sim.level)
         sim.phase = phase
         sim.clicks = clicks
         sim.hits = hits
+        sim.score = score
         if (phase === 'playing' || phase === 'levelClear') {
           sim.length = length
           sim.baits = baits
+          sim.timeLeftMs = timeLeftMs
+          sim.shownTime = Math.ceil(timeLeftMs / 1000)
           trimPath(sim.path, Math.max(SEGMENT_PX, length * SEGMENT_PX))
         }
         publish(sim, setHud)
@@ -405,7 +461,13 @@ export function useSnakeGame() {
         }
       }
 
-      if (sim.phase === 'playing') expireBait(sim, now, setHud)
+      if (sim.phase === 'playing') {
+        expireBait(sim, now, setHud)
+        tickClock(sim, now, setHud)
+      } else {
+        sim.clockAt = 0
+        setMusicBpm(100)
+      }
 
       const canvas = canvasRef.current
       const ctx = canvas?.getContext('2d')

@@ -178,8 +178,17 @@ function getAudio() {
   return audio
 }
 
-const BPM = 80
-const STEP = 60 / BPM / 4
+let bpm = 100
+
+function stepDuration() {
+  return 60 / bpm / 4
+}
+
+export function setMusicBpm(next: number) {
+  const clamped = Math.max(40, Math.min(220, next))
+  if (Math.abs(clamped - bpm) < 0.5) return
+  bpm = clamped
+}
 const LEAD = [76, 0, 79, 81, 84, 81, 79, 76, 79, 81, 84, 86, 88, 86, 84, 81]
 const BASS = [48, 0, 0, 0, 55, 0, 0, 48, 53, 0, 0, 0, 55, 0, 48, 0]
 
@@ -205,6 +214,7 @@ export function startMusic() {
 }
 
 export function stopMusic() {
+  setMusicBpm(100)
   musicOn = false
   window.clearInterval(musicTimer)
   musicTimer = 0
@@ -229,10 +239,11 @@ function scheduleMusic() {
     if (index % 8 === 4) musicClap(ctx, musicTime)
     musicHat(ctx, musicTime, index % 2 === 0 ? 0.035 : 0.02)
     const lead = LEAD[index]
-    if (lead) musicNote(ctx, midi(lead), musicTime, STEP * 0.92, 'square', 0.045)
+    const step = stepDuration()
+    if (lead) musicNote(ctx, midi(lead), musicTime, step * 0.92, 'square', 0.045)
     const bass = BASS[index]
-    if (bass) musicNote(ctx, midi(bass), musicTime, STEP * 1.5, 'triangle', 0.09)
-    musicTime += STEP
+    if (bass) musicNote(ctx, midi(bass), musicTime, step * 1.5, 'triangle', 0.09)
+    musicTime += step
     musicStep += 1
   }
 }

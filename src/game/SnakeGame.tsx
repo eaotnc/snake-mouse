@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { quotaFor } from './constants'
+import { fetchScores, saveScore, type ScoreRow } from './scores'
 import { getMuted, loadMuted, setMuted, startMusic, unlockAudio } from './sound'
 import { useSnakeGame, type Hud } from './useSnakeGame'
 
@@ -47,6 +48,12 @@ export default function SnakeGame() {
               <span className="stat">
                 Hits <strong>{hud.hits}</strong>
               </span>
+              <span className="stat">
+                Score <strong>{hud.score}</strong>
+              </span>
+              <span className={hud.timeLeft <= 15 ? 'stat danger' : 'stat'}>
+                Time <strong>{hud.timeLeft}</strong>
+              </span>
             </div>
           )}
           <button type="button" className="sound" aria-pressed={muted} onClick={toggleSound}>
@@ -92,8 +99,8 @@ function Overlay({
           <h2>How to play</h2>
           <ul className="rules">
             <li>The cursor is the head. Hover to move through the maze.</li>
-            <li>Eat bait to grow. Stages ask for 10, then 15, 20, and keep climbing.</li>
-            <li>The bait moves after 2 seconds. A click, a wall, or a move costs 1 length.</li>
+            <li>Eat within 1 second for 2 points, or before the bait moves for 1 point.</li>
+            <li>Each stage has 60 seconds. A bite adds 30 seconds. The snake stops growing at 15.</li>
           </ul>
           <button type="button" onClick={onStart}>
             Start
@@ -120,11 +127,69 @@ function Overlay({
     )
   }
 
+  return <GameOver hud={hud} onRestart={onRestart} />
+}
+
+function GameOver({ hud, onRestart }: { hud: Hud; onRestart: () => void }) {
+  const [name, setName] = useState('')
+  const [rows, setRows] = useState<ScoreRow[]>([])
+  const [message, setMessage] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    void fetchScores().then((result) => {
+      setRows(result.rows)
+      setMessage(result.error)
+    })
+  }, [])
+
+  const submit = async () => {
+    const error = await saveScore(name.trim().slice(0, 16), hud.score)
+    if (error) {
+      setMessage(error)
+      return
+    }
+    setSaved(true)
+    const result = await fetchScores()
+    setRows(result.rows)
+    setMessage(result.error)
+  }
+
   return (
     <div className="overlay">
       <div className="card">
         <h2>Game over</h2>
-        <p>The snake dropped below 1. Walls, clicks, and bait that slips away all take a length.</p>
+        <p>
+          Score {hud.score}. {hud.timeLeft <= 0 ? 'The clock ran out.' : 'The snake dropped below 1.'}
+        </p>
+        <form
+          className="save-score"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!saved) void submit()
+          }}
+        >
+          <input
+            value={name}
+            maxLength={16}
+            placeholder="Name"
+            aria-label="Name"
+            disabled={saved}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button type="submit" disabled={saved || name.trim().length === 0}>
+            {saved ? 'Saved' : 'Save score'}
+          </button>
+        </form>
+        {message && <p className="board-note">{message}</p>}
+        <ol className="board">
+          {rows.map((row) => (
+            <li key={row.id}>
+              <span>{row.name}</span>
+              <strong>{row.score}</strong>
+            </li>
+          ))}
+        </ol>
         <button type="button" onClick={onRestart}>
           Play again
         </button>
