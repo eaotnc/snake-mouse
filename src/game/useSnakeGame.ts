@@ -41,6 +41,7 @@ export type Hud = {
   hits: number
   score: number
   timeLeft: number
+  streak: number
 }
 
 type Sim = {
@@ -71,6 +72,8 @@ type Sim = {
   timeLeftMs: number
   clockAt: number
   shownTime: number
+  streak: number
+  streakPopAt: number
 }
 
 const initialHud: Hud = {
@@ -83,6 +86,7 @@ const initialHud: Hud = {
   hits: 0,
   score: 0,
   timeLeft: LEVEL_TIME_MS / 1000,
+  streak: 0,
 }
 
 function createSim(): Sim {
@@ -113,7 +117,9 @@ function createSim(): Sim {
     score: 0,
     timeLeftMs: LEVEL_TIME_MS,
     clockAt: 0,
-    shownTime: LEVEL_TIME_MS / 1000,
+    shownTime: Math.ceil(LEVEL_TIME_MS / 100) / 10,
+    streak: 0,
+    streakPopAt: 0,
   }
 }
 
@@ -128,6 +134,7 @@ function publish(sim: Sim, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) 
     hits: sim.hits,
     score: sim.score,
     timeLeft: Math.ceil(sim.timeLeftMs / 100) / 10,
+    streak: sim.streak,
   }
   setHud((prev) =>
     prev.phase === next.phase &&
@@ -138,7 +145,8 @@ function publish(sim: Sim, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) 
     prev.clicks === next.clicks &&
     prev.hits === next.hits &&
     prev.score === next.score &&
-    prev.timeLeft === next.timeLeft
+    prev.timeLeft === next.timeLeft &&
+    prev.streak === next.streak
       ? prev
       : next,
   )
@@ -281,6 +289,7 @@ function tickClock(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => 
 function expireBait(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
   if (sim.phase !== 'playing' || !sim.bait || now < sim.baitUntil) return
   const previous = sim.bait
+  sim.streak = 0
   placeBait(sim, now, previous)
   sim.length -= 1
   sim.flashUntil = now + 180
@@ -299,6 +308,13 @@ function expireBait(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) =>
   publish(sim, setHud)
 }
 
+function streakMultiplier(streak: number) {
+  if (streak >= 12) return 5
+  if (streak >= 8) return 3
+  if (streak >= 3) return 2
+  return 1
+}
+
 function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
   if (!sim.bait || sim.phase !== 'playing') return
   const head = sim.path[sim.path.length - 1]
@@ -307,7 +323,11 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
   if (dist(head, baitPoint) > HEAD_HIT_RADIUS + BAIT_RADIUS) return
 
   const elapsed = now - (sim.baitUntil - BAIT_TTL_MS)
-  sim.score += elapsed <= 1000 ? 2 : 1
+  const fast = elapsed <= 1000
+  sim.streak = fast ? sim.streak + 1 : 0
+  const multiplier = fast ? streakMultiplier(sim.streak) : 1
+  sim.score += (fast ? 2 : 1) * multiplier
+  if (sim.streak >= 3) sim.streakPopAt = now
   if (sim.length < MAX_LENGTH) sim.length += 1
   sim.timeLeftMs += BITE_TIME_MS
   sim.baits += 1
@@ -361,6 +381,7 @@ export function useSnakeGame() {
     sim.clicks = 0
     sim.hits = 0
     sim.score = 0
+    sim.streak = 0
     applyMaze(sim, 0)
     publish(sim, setHud)
     void unlockAudio().then(() => {
@@ -402,11 +423,13 @@ export function useSnakeGame() {
         const baits = sim.baits
         const score = sim.score
         const timeLeftMs = sim.timeLeftMs
+        const streak = sim.streak
         applyMaze(sim, sim.level)
         sim.phase = phase
         sim.clicks = clicks
         sim.hits = hits
         sim.score = score
+        sim.streak = streak
         if (phase === 'playing' || phase === 'levelClear') {
           sim.length = length
           sim.baits = baits
@@ -484,6 +507,8 @@ export function useSnakeGame() {
             bait: sim.phase === 'menu' || sim.phase === 'playing' ? sim.bait : null,
             baitLeft:
               sim.phase === 'playing' && sim.bait ? Math.max(0, (sim.baitUntil - now) / 1000) : null,
+            streak: sim.streak,
+            streakPopAt: sim.streakPopAt,
             latch: sim.latch,
             showLatch: sim.phase === 'playing' && !sim.latched,
             ghost,

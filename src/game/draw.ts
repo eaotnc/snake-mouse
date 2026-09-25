@@ -30,6 +30,8 @@ export type Scene = {
   now: number
   shake: number
   reduceMotion: boolean
+  streak: number
+  streakPopAt: number
 }
 
 export function baitBob(now: number, reduceMotion: boolean): number {
@@ -140,14 +142,23 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, dpr: numb
   if (scene.bait) drawBait(ctx, scene.bait, scene.now, scene.reduceMotion, scene.baitLeft)
   for (const ripple of scene.ripples) drawRipple(ctx, ripple, scene.now)
 
-  drawSnake(ctx, scene.path, scene.facing, scene.now, scene.flash, scene.reduceMotion)
-  if (scene.ghost) drawHead(ctx, scene.ghost, scene.facing, 8, false)
+  drawSnake(
+    ctx,
+    scene.path,
+    scene.facing,
+    scene.now,
+    scene.flash,
+    scene.reduceMotion,
+    scene.streak,
+  )
+  if (scene.ghost) drawHead(ctx, scene.ghost, scene.facing, 8, false, 0)
 
   if (scene.flash) {
     ctx.fillStyle = 'rgba(255, 70, 60, 0.16)'
     ctx.fillRect(0, 0, BOARD_W, BOARD_H)
   }
   ctx.restore()
+  drawStreak(ctx, scene.streak, scene.now, scene.streakPopAt)
 }
 
 function solid(mask: Mask, x: number, y: number): boolean {
@@ -528,28 +539,52 @@ function drawSnake(
   now: number,
   flash: boolean,
   reduceMotion: boolean,
+  streak: number,
 ) {
   const samples = smoothOpen(resampleFromHead(path, 7))
   if (samples.length === 0) return
-  const waved = reduceMotion ? samples : wave(samples, now)
+  const dancing = streak >= 3
+  const waved = reduceMotion ? samples : wave(samples, now, dancing ? streak : 0)
 
+  if (dancing) drawDanceFloor(ctx, waved, now, streak)
+
+  ctx.save()
+  if (dancing) {
+    ctx.shadowColor = streak >= 12 ? '#ffe27a' : '#d6ff4a'
+    ctx.shadowBlur = streak >= 12 ? 22 : 14
+  }
   for (let i = waved.length - 1; i >= 0; i--) {
     const t = i / Math.max(1, waved.length - 1)
     const radius = Math.max(3.2, HEAD_RADIUS * (1 - t * 0.7))
-    ctx.fillStyle = bodyColor(t, flash)
+    ctx.fillStyle = bodyColor(t, flash, dancing)
     ctx.beginPath()
     ctx.arc(waved[i].x, waved[i].y, radius, 0, Math.PI * 2)
     ctx.fill()
   }
+  ctx.restore()
 
-  drawHead(ctx, samples[0], facing, HEAD_RADIUS, flash)
+  drawHead(ctx, waved[0], facing, HEAD_RADIUS, flash, streak)
 }
 
-function wave(samples: Point[], now: number): Point[] {
+function drawDanceFloor(ctx: CanvasRenderingContext2D, samples: Point[], now: number, streak: number) {
+  const glow = streak >= 12 ? '255, 210, 74' : '214, 255, 74'
+  for (const point of samples) {
+    const pulse = 16 + Math.sin(now / 120 + point.x * 0.02) * 4
+    ctx.fillStyle = `rgba(${glow}, 0.16)`
+    ctx.beginPath()
+    ctx.ellipse(point.x, point.y + 10, pulse, pulse * 0.35, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function wave(samples: Point[], now: number, streak: number): Point[] {
+  const dancing = streak >= 3
+  const ampScale = streak >= 12 ? 7.5 : streak >= 8 ? 6 : dancing ? 4.8 : 2.6
+  const speed = dancing ? 80 : 140
   return samples.map((point, i) => {
     const t = i / Math.max(1, samples.length - 1)
     const envelope = Math.sin(Math.PI * t)
-    if (envelope === 0) return point
+    if (envelope === 0 && !dancing) return point
     const prev = samples[Math.max(0, i - 1)]
     const next = samples[Math.min(samples.length - 1, i + 1)]
     let tx = next.x - prev.x
@@ -557,8 +592,9 @@ function wave(samples: Point[], now: number): Point[] {
     const mag = Math.hypot(tx, ty) || 1
     tx /= mag
     ty /= mag
-    const amp = Math.sin(now / 140 - i * 0.5) * 2.6 * envelope
-    return { x: point.x + -ty * amp, y: point.y + tx * amp }
+    const amp = Math.sin(now / speed - i * 0.65) * ampScale * (envelope || 0.35)
+    const hop = dancing ? Math.sin(now / 90 - i * 0.4) * 3.2 : 0
+    return { x: point.x + -ty * amp, y: point.y + tx * amp - hop }
   })
 }
 
@@ -568,8 +604,14 @@ function drawHead(
   facing: Point,
   radius: number,
   flash: boolean,
+  streak: number,
 ) {
-  ctx.fillStyle = flash ? '#ffb0a8' : '#f3ffd4'
+  if (streak >= 3) {
+    ctx.save()
+    ctx.shadowColor = streak >= 12 ? '#ffe27a' : '#d6ff4a'
+    ctx.shadowBlur = 16
+  }
+  ctx.fillStyle = flash ? '#ffb0a8' : streak >= 3 ? '#f6ff9a' : '#f3ffd4'
   ctx.beginPath()
   ctx.arc(head.x, head.y, radius, 0, Math.PI * 2)
   ctx.fill()
@@ -593,10 +635,31 @@ function drawHead(
     ctx.arc(ex + fx * radius * 0.08, ey + fy * radius * 0.08, radius * 0.12, 0, Math.PI * 2)
     ctx.fill()
   }
+  if (streak >= 3) ctx.restore()
 }
 
-function bodyColor(t: number, flash: boolean): string {
-  const head: [number, number, number] = flash ? [255, 168, 156] : [214, 255, 120]
+function drawStreak(ctx: CanvasRenderingContext2D, streak: number, now: number, popAt: number) {
+  if (streak < 3 || now - popAt > 900) return
+  const t = (now - popAt) / 900
+  const alpha = t < 0.12 ? t / 0.12 : Math.max(0, 1 - (t - 0.12) / 0.88)
+  const pop = 0.82 + Math.sin(Math.min(1, t * 3) * Math.PI) * 0.28
+  const multiplier = streak >= 12 ? 5 : streak >= 8 ? 3 : 2
+  ctx.save()
+  ctx.translate(BOARD_W / 2, BOARD_H / 2)
+  ctx.scale(pop, pop)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = `rgba(214, 255, 74, ${alpha})`
+  ctx.font = '800 68px Syne, Outfit, sans-serif'
+  ctx.fillText('STREAK', 0, -28)
+  ctx.fillStyle = `rgba(255, 244, 180, ${alpha})`
+  ctx.font = '800 40px Syne, Outfit, sans-serif'
+  ctx.fillText(`x${multiplier}`, 0, 28)
+  ctx.restore()
+}
+
+function bodyColor(t: number, flash: boolean, dancing = false): string {
+  const head: [number, number, number] = flash ? [255, 168, 156] : dancing ? [246, 255, 140] : [214, 255, 120]
   const tail: [number, number, number] = flash ? [176, 54, 46] : [22, 112, 94]
   const r = Math.round(head[0] + (tail[0] - head[0]) * t)
   const g = Math.round(head[1] + (tail[1] - head[1]) * t)
