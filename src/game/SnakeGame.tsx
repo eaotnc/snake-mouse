@@ -52,7 +52,7 @@ export default function SnakeGame() {
                 Score <strong>{hud.score}</strong>
               </span>
               <span className={hud.timeLeft <= 15 ? 'stat danger' : 'stat'}>
-                Time <strong>{hud.timeLeft}</strong>
+                Time <strong>{hud.timeLeft.toFixed(1)}</strong>
               </span>
             </div>
           )}
@@ -100,7 +100,7 @@ function Overlay({
           <ul className="rules">
             <li>The cursor is the head. Hover to move through the maze.</li>
             <li>Eat within 1 second for 2 points, or before the bait moves for 1 point.</li>
-            <li>Each stage has 60 seconds. A bite adds 30 seconds. The snake stops growing at 15.</li>
+            <li>Each stage has 60 seconds. A bite adds half a second. The snake stops growing at 15.</li>
           </ul>
           <button type="button" onClick={onStart}>
             Start

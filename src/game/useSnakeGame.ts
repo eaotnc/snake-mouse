@@ -127,7 +127,7 @@ function publish(sim: Sim, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) 
     clicks: sim.clicks,
     hits: sim.hits,
     score: sim.score,
-    timeLeft: Math.ceil(sim.timeLeftMs / 1000),
+    timeLeft: Math.ceil(sim.timeLeftMs / 100) / 10,
   }
   setHud((prev) =>
     prev.phase === next.phase &&
@@ -221,7 +221,7 @@ function applyMaze(sim: Sim, levelIndex: number) {
   placeBait(sim, performance.now())
   sim.timeLeftMs = LEVEL_TIME_MS
   sim.clockAt = 0
-  sim.shownTime = LEVEL_TIME_MS / 1000
+  sim.shownTime = Math.ceil(LEVEL_TIME_MS / 100) / 10
   setMusicBpm(100)
   sim.ripples = []
   sim.penaltyReadyAt = 0
@@ -271,7 +271,7 @@ function tickClock(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => 
     publish(sim, setHud)
     return
   }
-  const shown = Math.ceil(sim.timeLeftMs / 1000)
+  const shown = Math.ceil(sim.timeLeftMs / 100) / 10
   if (shown !== sim.shownTime) {
     sim.shownTime = shown
     publish(sim, setHud)
@@ -411,7 +411,7 @@ export function useSnakeGame() {
           sim.length = length
           sim.baits = baits
           sim.timeLeftMs = timeLeftMs
-          sim.shownTime = Math.ceil(timeLeftMs / 1000)
+          sim.shownTime = Math.ceil(timeLeftMs / 100) / 10
           trimPath(sim.path, Math.max(SEGMENT_PX, length * SEGMENT_PX))
         }
         publish(sim, setHud)
