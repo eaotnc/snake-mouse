@@ -20,6 +20,7 @@ export type Scene = {
   walls: Shape[]
   path: Point[]
   bait: Point | null
+  baitLeft: number | null
   latch: Point
   showLatch: boolean
   ghost: Point | null
@@ -136,7 +137,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, dpr: numb
   for (const wall of scene.walls) paintShape(ctx, wall, false)
 
   if (scene.showLatch) drawLatch(ctx, scene.latch, scene.now)
-  if (scene.bait) drawBait(ctx, scene.bait, scene.now, scene.reduceMotion)
+  if (scene.bait) drawBait(ctx, scene.bait, scene.now, scene.reduceMotion, scene.baitLeft)
   for (const ripple of scene.ripples) drawRipple(ctx, ripple, scene.now)
 
   drawSnake(ctx, scene.path, scene.facing, scene.now, scene.flash, scene.reduceMotion)
@@ -172,7 +173,7 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fill()
 
   ctx.beginPath()
-  ctx.roundRect(40, 40, BOARD_W - 80, BOARD_H - 80, 22)
+  ctx.roundRect(20, 20, BOARD_W - 40, BOARD_H - 40, 12)
   ctx.fillStyle = '#10241c'
   ctx.fill()
 
@@ -408,20 +409,21 @@ function mortar(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { kind: 'bl
 function frameCourses(ctx: CanvasRenderingContext2D) {
   ctx.strokeStyle = 'rgba(32, 26, 22, 0.38)'
   ctx.lineWidth = 1.5
-  for (let x = 28; x < BOARD_W - 20; x += 86) {
+  const edge = 16
+  for (let x = 24; x < BOARD_W - 16; x += 86) {
     ctx.beginPath()
     ctx.moveTo(x, 0)
-    ctx.lineTo(x + 5, 42)
-    ctx.moveTo(x + 30, BOARD_H)
-    ctx.lineTo(x + 24, BOARD_H - 42)
+    ctx.lineTo(x + 3, edge)
+    ctx.moveTo(x + 28, BOARD_H)
+    ctx.lineTo(x + 25, BOARD_H - edge)
     ctx.stroke()
   }
-  for (let y = 36; y < BOARD_H - 20; y += 92) {
+  for (let y = 28; y < BOARD_H - 16; y += 92) {
     ctx.beginPath()
     ctx.moveTo(0, y)
-    ctx.lineTo(42, y + 4)
-    ctx.moveTo(BOARD_W, y + 40)
-    ctx.lineTo(BOARD_W - 42, y + 34)
+    ctx.lineTo(edge, y + 2)
+    ctx.moveTo(BOARD_W, y + 36)
+    ctx.lineTo(BOARD_W - edge, y + 34)
     ctx.stroke()
   }
 }
@@ -474,6 +476,7 @@ function drawBait(
   bait: Point,
   now: number,
   reduceMotion: boolean,
+  baitLeft: number | null,
 ) {
   const y = bait.y + baitBob(now, reduceMotion)
   const pulse = BAIT_RADIUS + (reduceMotion ? 0 : Math.sin(now / 220) * 1.4)
@@ -493,6 +496,19 @@ function drawBait(
   ctx.beginPath()
   ctx.arc(bait.x - pulse * 0.28, y - pulse * 0.32, pulse * 0.28, 0, Math.PI * 2)
   ctx.fill()
+
+  if (baitLeft == null) return
+  const fraction = Math.max(0, Math.min(1, baitLeft / 2))
+  ctx.beginPath()
+  ctx.arc(bait.x, y, pulse + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraction)
+  ctx.strokeStyle = fraction < 0.35 ? '#ff8d7a' : '#fff1c2'
+  ctx.lineWidth = 2.5
+  ctx.stroke()
+  ctx.font = '700 13px Outfit, "Avenir Next", sans-serif'
+  ctx.fillStyle = '#fff1c2'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(String(Math.ceil(baitLeft)), bait.x, y - pulse - 16)
 }
 
 function drawRipple(ctx: CanvasRenderingContext2D, ripple: Ripple, now: number) {

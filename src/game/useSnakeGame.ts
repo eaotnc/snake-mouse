@@ -3,11 +3,14 @@ import {
   BAIT_RADIUS,
   BOARD_H,
   BOARD_W,
+  BAIT_TTL_MS,
+  boardIsPortrait,
   HEAD_HIT_RADIUS,
   LATCH_RADIUS,
-  LEVEL_QUOTAS,
   PENALTY_MS,
+  quotaFor,
   SEGMENT_PX,
+  setPortraitBoard,
   START_LENGTH,
 } from './constants'
 import {
@@ -19,11 +22,11 @@ import {
   type Mask,
   type Ripple,
 } from './draw'
-import { MAZES, type Shape } from './mazes'
+import { generateMaze, type Shape } from './mazes'
 import { dist, trimPath, type Point } from './path'
 import { playSound, startMusic, stopMusic, unlockAudio } from './sound'
 
-export type Phase = 'menu' | 'playing' | 'levelClear' | 'won' | 'gameover'
+export type Phase = 'menu' | 'playing' | 'levelClear' | 'gameover'
 
 export type Hud = {
   phase: Phase
@@ -46,6 +49,7 @@ type Sim = {
   pointerInside: boolean
   path: Point[]
   bait: Point | null
+  baitUntil: number
   mask: Mask | null
   openCells: Point[]
   walls: Shape[]
@@ -65,7 +69,7 @@ const initialHud: Hud = {
   level: 1,
   length: START_LENGTH,
   baits: 0,
-  quota: LEVEL_QUOTAS[0],
+  quota: quotaFor(0),
   clicks: 0,
   hits: 0,
 }
@@ -82,6 +86,7 @@ function createSim(): Sim {
     pointerInside: false,
     path: [],
     bait: null,
+    baitUntil: 0,
     mask: null,
     openCells: [],
     walls: [],
@@ -103,7 +108,7 @@ function publish(sim: Sim, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) 
     level: sim.level + 1,
     length: sim.length,
     baits: sim.baits,
-    quota: LEVEL_QUOTAS[sim.level],
+    quota: quotaFor(sim.level),
     clicks: sim.clicks,
     hits: sim.hits,
   }
@@ -165,17 +170,24 @@ function clearOfPath(cell: Point, path: Point[]) {
   return true
 }
 
-function pickBait(sim: Sim): Point | null {
+function pickBait(sim: Sim, avoid?: Point | null): Point | null {
   const head = sim.path[sim.path.length - 1] ?? sim.latch
-  let pool = sim.openCells.filter((cell) => dist(cell, head) > 140 && clearOfPath(cell, sim.path))
-  if (pool.length < 4) pool = sim.openCells.filter((cell) => dist(cell, head) > 80)
+  const away = (cell: Point) => !avoid || dist(cell, avoid) > 80
+  let pool = sim.openCells.filter((cell) => dist(cell, head) > 140 && clearOfPath(cell, sim.path) && away(cell))
+  if (pool.length < 4) pool = sim.openCells.filter((cell) => dist(cell, head) > 80 && away(cell))
+  if (pool.length === 0) pool = sim.openCells.filter(away)
   if (pool.length === 0) pool = sim.openCells
   if (pool.length === 0) return null
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+function placeBait(sim: Sim, now: number, avoid?: Point | null) {
+  sim.bait = pickBait(sim, avoid)
+  sim.baitUntil = now + BAIT_TTL_MS
+}
+
 function applyMaze(sim: Sim, levelIndex: number) {
-  const maze = MAZES[levelIndex]
+  const maze = generateMaze(levelIndex)
   sim.level = levelIndex
   sim.length = START_LENGTH
   sim.baits = 0
@@ -187,7 +199,7 @@ function applyMaze(sim: Sim, levelIndex: number) {
   const seeded = seedPath(maze.start, Math.max(SEGMENT_PX, sim.length * SEGMENT_PX), sim.mask)
   sim.path = seeded.path
   sim.facing = seeded.facing
-  sim.bait = pickBait(sim)
+  placeBait(sim, performance.now())
   sim.ripples = []
   sim.penaltyReadyAt = 0
 }
@@ -219,6 +231,27 @@ function penalize(
   publish(sim, setHud)
 }
 
+function expireBait(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
+  if (sim.phase !== 'playing' || !sim.bait || now < sim.baitUntil) return
+  const previous = sim.bait
+  placeBait(sim, now, previous)
+  sim.length -= 1
+  sim.flashUntil = now + 180
+  sim.shakeUntil = now + 160
+  trimPath(sim.path, Math.max(0, sim.length) * SEGMENT_PX)
+  if (sim.length < 1) {
+    sim.length = 0
+    sim.bait = null
+    sim.phase = 'gameover'
+    sim.latched = false
+    stopMusic()
+    playSound('gameover')
+  } else {
+    playSound('wall')
+  }
+  publish(sim, setHud)
+}
+
 function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
   if (!sim.bait || sim.phase !== 'playing') return
   const head = sim.path[sim.path.length - 1]
@@ -229,15 +262,13 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
   sim.length += 1
   sim.baits += 1
   sim.ripples.push({ x: sim.bait.x, y: baitPoint.y, born: now })
-  if (sim.baits >= LEVEL_QUOTAS[sim.level]) {
+  if (sim.baits >= quotaFor(sim.level)) {
     sim.bait = null
     sim.latched = false
-    const won = sim.level >= LEVEL_QUOTAS.length - 1
-    sim.phase = won ? 'won' : 'levelClear'
-    if (won) stopMusic()
-    playSound(won ? 'win' : 'clear')
+    sim.phase = 'levelClear'
+    playSound('clear')
   } else {
-    sim.bait = pickBait(sim)
+    placeBait(sim, now, sim.bait)
     playSound('eat')
   }
   publish(sim, setHud)
@@ -308,13 +339,42 @@ export function useSnakeGame() {
 
     const fit = () => {
       const canvas = canvasRef.current
-      if (!canvas) return
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      sim.dpr = dpr
-      canvas.width = Math.round(BOARD_W * dpr)
-      canvas.height = Math.round(BOARD_H * dpr)
+      const stage = canvas?.parentElement
+      if (!canvas || !stage) return
+      const portrait = window.matchMedia('(max-width: 800px)').matches
+      if (portrait !== boardIsPortrait()) {
+        setPortraitBoard(portrait)
+        const phase = sim.phase
+        const clicks = sim.clicks
+        const hits = sim.hits
+        const length = sim.length
+        const baits = sim.baits
+        applyMaze(sim, sim.level)
+        sim.phase = phase
+        sim.clicks = clicks
+        sim.hits = hits
+        if (phase === 'playing' || phase === 'levelClear') {
+          sim.length = length
+          sim.baits = baits
+          trimPath(sim.path, Math.max(SEGMENT_PX, length * SEGMENT_PX))
+        }
+        publish(sim, setHud)
+      }
+      const bounds = stage.getBoundingClientRect()
+      const scale = Math.min(bounds.width / BOARD_W, bounds.height / BOARD_H)
+      const cssW = Math.max(1, Math.floor(BOARD_W * scale))
+      const cssH = Math.max(1, Math.round((cssW * BOARD_H) / BOARD_W))
+      const pixels = Math.min(window.devicePixelRatio || 1, 2)
+      sim.dpr = (cssW * pixels) / BOARD_W
+      canvas.width = Math.round(cssW * pixels)
+      canvas.height = Math.round(cssH * pixels)
+      canvas.style.width = `${cssW}px`
+      canvas.style.height = `${cssH}px`
     }
     fit()
+    const observer = new ResizeObserver(fit)
+    const stage = canvasRef.current?.parentElement
+    if (stage) observer.observe(stage)
     window.addEventListener('resize', fit)
 
     let frame = 0
@@ -345,6 +405,8 @@ export function useSnakeGame() {
         }
       }
 
+      if (sim.phase === 'playing') expireBait(sim, now, setHud)
+
       const canvas = canvasRef.current
       const ctx = canvas?.getContext('2d')
       if (ctx && sim.mask) {
@@ -358,6 +420,8 @@ export function useSnakeGame() {
             walls: sim.walls,
             path: sim.path,
             bait: sim.phase === 'menu' || sim.phase === 'playing' ? sim.bait : null,
+            baitLeft:
+              sim.phase === 'playing' && sim.bait ? Math.max(0, (sim.baitUntil - now) / 1000) : null,
             latch: sim.latch,
             showLatch: sim.phase === 'playing' && !sim.latched,
             ghost,
@@ -378,6 +442,7 @@ export function useSnakeGame() {
 
     return () => {
       cancelAnimationFrame(frame)
+      observer.disconnect()
       window.removeEventListener('resize', fit)
     }
   }, [])

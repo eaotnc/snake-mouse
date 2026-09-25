@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LEVEL_QUOTAS } from './constants'
+import { quotaFor } from './constants'
 import { getMuted, loadMuted, setMuted, startMusic, unlockAudio } from './sound'
 import { useSnakeGame, type Hud } from './useSnakeGame'
 
@@ -22,9 +22,9 @@ export default function SnakeGame() {
   return (
     <div className="layout">
       <header className="top">
-        <div>
+        <div className="brand">
           <h1>Snake Mouse</h1>
-          <p className="tag">Five mazes. Don&apos;t click.</p>
+          <p className="tag">Don&apos;t click.</p>
         </div>
         <div className="hud">
           {hud.phase !== 'menu' && (
@@ -49,12 +49,7 @@ export default function SnakeGame() {
               </span>
             </div>
           )}
-          <button
-            type="button"
-            className="sound"
-            aria-pressed={muted}
-            onClick={toggleSound}
-          >
+          <button type="button" className="sound" aria-pressed={muted} onClick={toggleSound}>
             {muted ? 'Sound off' : 'Sound on'}
           </button>
         </div>
@@ -97,8 +92,8 @@ function Overlay({
           <h2>How to play</h2>
           <ul className="rules">
             <li>The cursor is the head. Hover to move through the maze.</li>
-            <li>Eat bait to grow. Stages ask for 5, then 10, 15, 20, and 25.</li>
-            <li>A click or a wall shortens the snake. Drop below 1 and it&apos;s over.</li>
+            <li>Eat bait to grow. Stages ask for 10, then 15, 20, and keep climbing.</li>
+            <li>The bait moves after 2 seconds. A click, a wall, or a move costs 1 length.</li>
           </ul>
           <button type="button" onClick={onStart}>
             Start
@@ -114,7 +109,7 @@ function Overlay({
         <div className="card">
           <h2>Stage {hud.level} clear</h2>
           <p>
-            Length is {hud.length}. Stage {hud.level + 1} needs {LEVEL_QUOTAS[hud.level]} bait.
+            Stage {hud.level + 1} starts at length 3 and needs {quotaFor(hud.level)} bait.
             Hover the ring to pick the snake back up.
           </p>
           <button type="button" onClick={onNext}>
@@ -125,25 +120,11 @@ function Overlay({
     )
   }
 
-  if (hud.phase === 'won') {
-    return (
-      <div className="overlay">
-        <div className="card">
-          <h2>Maze cleared</h2>
-          <p>All five stages are done. The snake grew to length {hud.length}.</p>
-          <button type="button" onClick={onRestart}>
-            Play again
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="overlay">
       <div className="card">
         <h2>Game over</h2>
-        <p>The snake dropped below 1. Walls and clicks both take a length.</p>
+        <p>The snake dropped below 1. Walls, clicks, and bait that slips away all take a length.</p>
         <button type="button" onClick={onRestart}>
           Play again
         </button>

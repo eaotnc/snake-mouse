@@ -1,7 +1,21 @@
-export const BOARD_W = 960
-export const BOARD_H = 600
-export const LEVEL_QUOTAS = [5, 10, 15, 20, 25] as const
+export let BOARD_W = 960
+export let BOARD_H = 600
+
+export function setPortraitBoard(portrait: boolean) {
+  BOARD_W = portrait ? 600 : 960
+  BOARD_H = portrait ? 960 : 600
+}
+
+export function boardIsPortrait() {
+  return BOARD_H > BOARD_W
+}
 export const START_LENGTH = 3
+export const BAIT_TTL_MS = 2000
+
+/** Stage 1 asks for 10, then 15, 20, 25, and so on. */
+export function quotaFor(levelIndex: number) {
+  return 10 + levelIndex * 5
+}
 export const SEGMENT_PX = 36
 export const PENALTY_MS = 400
 export const HEAD_RADIUS = 13
