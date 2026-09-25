@@ -182,10 +182,11 @@ function ScoreList({ rows }: { rows: ScoreRow[] }) {
   return (
     <ol className="board">
       {rows.map((row) => (
-        <li key={row.id}>
-          <span>{row.name}</span>
-          <strong>{row.score}</strong>
-        </li>
+            <li key={row.id}>
+              <span>{row.name}</span>
+              <span>Level {row.level}</span>
+              <strong>{row.score}</strong>
+            </li>
       ))}
     </ol>
   )
@@ -205,7 +206,7 @@ function GameOver({ hud, onRestart }: { hud: Hud; onRestart: () => void }) {
   }, [])
 
   const submit = async () => {
-    const error = await saveScore(name.trim().slice(0, 16), hud.score)
+    const error = await saveScore(name.trim().slice(0, 16), hud.score, hud.level)
     if (error) {
       setMessage(error)
       return

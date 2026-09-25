@@ -1,4 +1,4 @@
-export type ScoreRow = { id: number; name: string; score: number }
+export type ScoreRow = { id: number; name: string; score: number; level: number }
 
 export async function fetchScores(): Promise<{ rows: ScoreRow[]; error: string | null }> {
   try {
@@ -11,12 +11,12 @@ export async function fetchScores(): Promise<{ rows: ScoreRow[]; error: string |
   }
 }
 
-export async function saveScore(name: string, score: number): Promise<string | null> {
+export async function saveScore(name: string, score: number, level: number): Promise<string | null> {
   try {
     const response = await fetch('/api/scores', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, score }),
+      body: JSON.stringify({ name, score, level }),
     })
     const body = (await response.json()) as { error?: string }
     if (!response.ok) return body.error ?? 'Could not save the score.'

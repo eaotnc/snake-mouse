@@ -1,4 +1,4 @@
-export type SoundName = 'eat' | 'click' | 'wall' | 'gameover' | 'clear' | 'win' | 'start' | 'latch'
+export type SoundName = 'eat' | 'streak' | 'click' | 'wall' | 'gameover' | 'clear' | 'win' | 'start' | 'latch'
 
 const STORAGE_KEY = 'snake-mouse-muted'
 
@@ -41,6 +41,7 @@ export function playSound(name: SoundName) {
   const now = ctx.currentTime
 
   if (name === 'eat') bite(ctx, now)
+  else if (name === 'streak') streakHit(ctx, now)
   else if (name === 'click') click(ctx, now)
   else if (name === 'wall') thud(ctx, now)
   else if (name === 'gameover') sigh(ctx, now)
@@ -54,6 +55,15 @@ function bite(ctx: AudioContext, when: number) {
   burst(ctx, when, 0.045, 0.16, { type: 'highpass', freq: 1400, q: 0.6 })
   burst(ctx, when + 0.04, 0.05, 0.08, { type: 'bandpass', freq: 900, q: 1.4 })
   tone(ctx, 320, 140, when, 0.09, 0.07)
+}
+
+function streakHit(ctx: AudioContext, when: number) {
+  burst(ctx, when, 0.09, 0.34, { type: 'lowpass', freq: 220, endFreq: 70, q: 0.7 })
+  burst(ctx, when, 0.14, 0.22, { type: 'bandpass', freq: 700, endFreq: 3200, q: 0.8 })
+  tone(ctx, 196, 392, when, 0.18, 0.2)
+  bell(ctx, 523, when, 0.32, 0.14)
+  bell(ctx, 659, when + 0.05, 0.36, 0.12)
+  bell(ctx, 784, when + 0.1, 0.42, 0.13)
 }
 
 function click(ctx: AudioContext, when: number) {

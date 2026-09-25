@@ -331,7 +331,11 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
   sim.streak = fast ? sim.streak + 1 : 0
   const multiplier = fast ? streakMultiplier(sim.streak) : 1
   sim.score += (fast ? 2 : 1) * multiplier
-  if (sim.streak >= 3) sim.streakPopAt = now
+  if (sim.streak >= 3) {
+    sim.streakPopAt = now
+    if (!sim.reduceMotion) sim.shakeUntil = now + 360
+    playSound('streak')
+  }
   if (sim.length < MAX_LENGTH) sim.length += 1
   sim.timeLeftMs += BITE_TIME_MS
   sim.baits += 1
@@ -343,7 +347,7 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
     playSound('clear')
   } else {
     placeBait(sim, now, sim.bait)
-    playSound('eat')
+    if (sim.streak < 3) playSound('eat')
   }
   publish(sim, setHud)
 }
