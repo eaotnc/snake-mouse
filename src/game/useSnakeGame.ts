@@ -8,6 +8,7 @@ import {
   boardIsPortrait,
   HEAD_HIT_RADIUS,
   LATCH_RADIUS,
+  IMMORTAL_MS,
   LEVEL_TIME_MS,
   MAX_LENGTH,
   WALL_SCORE_PENALTY,
@@ -28,7 +29,7 @@ import {
 } from './draw'
 import { generateMaze, type Shape } from './mazes'
 import { dist, trimPath, type Point } from './path'
-import { playSound, setMusicBpm, startMusic, stopMusic, unlockAudio } from './sound'
+import { playSound, setMetalMusic, setMusicBpm, startMusic, stopMusic, unlockAudio } from './sound'
 
 export type Phase = 'menu' | 'playing' | 'levelClear' | 'gameover'
 
@@ -75,6 +76,8 @@ type Sim = {
   shownTime: number
   streak: number
   streakPopAt: number
+  immortalUntil: number
+  immortalPopAt: number
 }
 
 const initialHud: Hud = {
@@ -121,6 +124,8 @@ function createSim(): Sim {
     shownTime: Math.ceil(LEVEL_TIME_MS / 100) / 10,
     streak: 0,
     streakPopAt: 0,
+    immortalUntil: 0,
+    immortalPopAt: 0,
   }
 }
 
@@ -243,6 +248,7 @@ function penalize(
   cause: 'click' | 'wall',
 ) {
   if (sim.phase !== 'playing' || !sim.latched) return
+  if (cause === 'wall' && now < sim.immortalUntil) return
   if (now < sim.penaltyReadyAt) return
   if (cause === 'click') sim.clicks += 1
   else {
@@ -271,7 +277,7 @@ function tickClock(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => 
   if (sim.clockAt > 0) sim.timeLeftMs -= now - sim.clockAt
   sim.clockAt = now
   const seconds = Math.max(0, sim.timeLeftMs / 1000)
-  setMusicBpm(seconds <= 4 ? 100 + ((4 - seconds) / 4) * 60 : 100)
+  setMusicBpm(now < sim.immortalUntil ? 176 : seconds <= 4 ? 100 + ((4 - seconds) / 4) * 60 : 100)
   if (sim.timeLeftMs <= 0) {
     sim.timeLeftMs = 0
     sim.phase = 'gameover'
@@ -313,10 +319,8 @@ function expireBait(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) =>
 }
 
 function streakMultiplier(streak: number) {
-  if (streak >= 12) return 5
-  if (streak >= 8) return 3
-  if (streak >= 3) return 2
-  return 1
+  if (streak < 3) return 1
+  return Math.min(10, streak)
 }
 
 function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud)) => void) {
@@ -329,7 +333,12 @@ function tryEat(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => Hud
   const elapsed = now - (sim.baitUntil - BAIT_TTL_MS)
   const fast = elapsed <= 1000
   sim.streak = fast ? sim.streak + 1 : 0
-  const multiplier = fast ? streakMultiplier(sim.streak) : 1
+  if (fast && sim.streak === 12) {
+    sim.immortalUntil = now + IMMORTAL_MS
+    sim.immortalPopAt = now
+  }
+  const immortal = now < sim.immortalUntil
+  const multiplier = immortal ? 10 : fast ? streakMultiplier(sim.streak) : 1
   sim.score += (fast ? 2 : 1) * multiplier
   if (sim.streak >= 3) {
     sim.streakPopAt = now
@@ -390,6 +399,7 @@ export function useSnakeGame() {
     sim.hits = 0
     sim.score = 0
     sim.streak = 0
+    sim.immortalUntil = 0
     applyMaze(sim, 0)
     publish(sim, setHud)
     void unlockAudio().then(() => {
@@ -492,12 +502,16 @@ export function useSnakeGame() {
         }
       }
 
+      const immortal = sim.phase === 'playing' && now < sim.immortalUntil
+      setMetalMusic(immortal)
       if (sim.phase === 'playing') {
         expireBait(sim, now, setHud)
         tickClock(sim, now, setHud)
       } else {
         sim.clockAt = 0
+        sim.immortalUntil = 0
         setMusicBpm(100)
+        setMetalMusic(false)
       }
 
       const canvas = canvasRef.current
@@ -517,6 +531,8 @@ export function useSnakeGame() {
               sim.phase === 'playing' && sim.bait ? Math.max(0, (sim.baitUntil - now) / 1000) : null,
             streak: sim.streak,
             streakPopAt: sim.streakPopAt,
+            immortal: now < sim.immortalUntil,
+            immortalPopAt: sim.immortalPopAt,
             latch: sim.latch,
             showLatch: sim.phase === 'playing' && !sim.latched,
             ghost,

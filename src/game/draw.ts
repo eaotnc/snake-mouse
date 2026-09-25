@@ -32,6 +32,8 @@ export type Scene = {
   reduceMotion: boolean
   streak: number
   streakPopAt: number
+  immortal: boolean
+  immortalPopAt: number
 }
 
 export function baitBob(now: number, reduceMotion: boolean): number {
@@ -158,7 +160,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, dpr: numb
     ctx.fillRect(0, 0, BOARD_W, BOARD_H)
   }
   ctx.restore()
-  drawStreak(ctx, scene.streak, scene.now, scene.streakPopAt)
+  drawStreak(ctx, scene.streak, scene.now, scene.streakPopAt, scene.immortal)
+  drawImmortal(ctx, scene.immortal, scene.now, scene.immortalPopAt)
 }
 
 function solid(mask: Mask, x: number, y: number): boolean {
@@ -638,24 +641,43 @@ function drawHead(
   if (streak >= 3) ctx.restore()
 }
 
-function drawStreak(ctx: CanvasRenderingContext2D, streak: number, now: number, popAt: number) {
-  if (streak < 3 || now - popAt > 900) return
-  const t = (now - popAt) / 900
-  const fade = t < 0.12 ? t / 0.12 : Math.max(0, 1 - (t - 0.12) / 0.88)
-  const alpha = fade * 0.42
-  const pop = 0.9 + Math.sin(Math.min(1, t * 3) * Math.PI) * 0.12
-  const multiplier = streak >= 12 ? 5 : streak >= 8 ? 3 : 2
+function drawStreak(
+  ctx: CanvasRenderingContext2D,
+  streak: number,
+  now: number,
+  popAt: number,
+  immortal: boolean,
+) {
+  if (streak < 3) return
+  const age = now - popAt
+  if (age > 500) return
+  const pop = age < 120 ? 1.08 : 1
+  const multiplier = immortal ? 10 : Math.min(10, streak)
   ctx.save()
-  ctx.translate(BOARD_W / 2, BOARD_H / 2)
+  ctx.translate(BOARD_W / 2, BOARD_H / 2 + (immortal ? 28 : 0))
   ctx.scale(pop, pop)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillStyle = `rgba(214, 255, 74, ${alpha})`
-  ctx.font = '800 34px Syne, Outfit, sans-serif'
-  ctx.fillText('STREAK', 0, -14)
-  ctx.fillStyle = `rgba(255, 244, 180, ${alpha})`
-  ctx.font = '800 20px Syne, Outfit, sans-serif'
-  ctx.fillText(`x${multiplier}`, 0, 14)
+  ctx.fillStyle = 'rgba(214, 255, 74, 0.82)'
+  ctx.font = '800 28px Syne, Outfit, sans-serif'
+  ctx.fillText('Steak', 0, -22)
+  ctx.font = '800 40px Syne, Outfit, sans-serif'
+  ctx.fillText(`${streak} x ${multiplier}`, 0, 16)
+  ctx.restore()
+}
+
+function drawImmortal(ctx: CanvasRenderingContext2D, immortal: boolean, now: number, popAt: number) {
+  if (!immortal) return
+  const age = now - popAt
+  const pop = age < 220 ? 1.16 : 1
+  ctx.save()
+  ctx.translate(BOARD_W / 2, BOARD_H / 2 - 28)
+  ctx.scale(pop, pop)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = 'rgba(255, 196, 92, 0.9)'
+  ctx.font = '800 46px Syne, Outfit, sans-serif'
+  ctx.fillText('IMMORTAL', 0, 0)
   ctx.restore()
 }
 

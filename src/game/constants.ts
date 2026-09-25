@@ -15,6 +15,7 @@ export const BAIT_TTL_MS = 2000
 export const LEVEL_TIME_MS = 10_000
 export const WALL_SCORE_PENALTY = 10
 export const BITE_TIME_MS = 500
+export const IMMORTAL_MS = 5_000
 
 /** Stage 1 asks for 10, then 15, 20, 25, and so on. */
 export function quotaFor(levelIndex: number) {

@@ -201,12 +201,18 @@ export function setMusicBpm(next: number) {
 }
 const LEAD = [76, 0, 79, 81, 84, 81, 79, 76, 79, 81, 84, 86, 88, 86, 84, 81]
 const BASS = [48, 0, 0, 0, 55, 0, 0, 48, 53, 0, 0, 0, 55, 0, 48, 0]
+const METAL = [40, 40, 40, 43, 40, 47, 40, 43, 40, 40, 38, 40, 35, 40, 43, 47]
 
 let musicGain: GainNode | null = null
 let musicTimer = 0
 let musicStep = 0
 let musicTime = 0
 let musicOn = false
+let metal = false
+
+export function setMetalMusic(on: boolean) {
+  metal = on
+}
 
 export function startMusic() {
   if (muted || musicOn) return
@@ -225,6 +231,7 @@ export function startMusic() {
 
 export function stopMusic() {
   setMusicBpm(100)
+  metal = false
   musicOn = false
   window.clearInterval(musicTimer)
   musicTimer = 0
@@ -244,15 +251,22 @@ function scheduleMusic() {
   if (!ctx || !musicOn || !musicGain) return
   const horizon = ctx.currentTime + 0.25
   while (musicTime < horizon) {
-    const index = musicStep % LEAD.length
-    if (index % 8 === 0) musicKick(ctx, musicTime)
-    if (index % 8 === 4) musicClap(ctx, musicTime)
-    musicHat(ctx, musicTime, index % 2 === 0 ? 0.035 : 0.02)
-    const lead = LEAD[index]
+    const leadPattern = metal ? METAL : LEAD
+    const bassPattern = metal ? METAL : BASS
+    const index = musicStep % leadPattern.length
+    if (metal) {
+      if (index % 2 === 0) musicKick(ctx, musicTime, 0.28)
+      if (index % 4 === 2) musicClap(ctx, musicTime)
+    } else {
+      if (index % 8 === 0) musicKick(ctx, musicTime, 0.16)
+      if (index % 8 === 4) musicClap(ctx, musicTime)
+      musicHat(ctx, musicTime, index % 2 === 0 ? 0.035 : 0.02)
+    }
+    const lead = leadPattern[index]
     const step = stepDuration()
-    if (lead) musicNote(ctx, midi(lead), musicTime, step * 0.92, 'square', 0.045)
-    const bass = BASS[index]
-    if (bass) musicNote(ctx, midi(bass), musicTime, step * 1.5, 'triangle', 0.09)
+    if (lead) musicNote(ctx, midi(lead), musicTime, step * (metal ? 0.45 : 0.92), metal ? 'sawtooth' : 'square', metal ? 0.07 : 0.045)
+    const bass = bassPattern[index]
+    if (bass) musicNote(ctx, midi(bass), musicTime, step * (metal ? 0.4 : 1.5), metal ? 'square' : 'triangle', metal ? 0.11 : 0.09)
     musicTime += step
     musicStep += 1
   }
@@ -289,14 +303,14 @@ function musicNote(
   osc.stop(when + duration + 0.02)
 }
 
-function musicKick(ctx: AudioContext, when: number) {
+function musicKick(ctx: AudioContext, when: number, peak = 0.16) {
   if (!musicGain) return
   const osc = ctx.createOscillator()
   osc.type = 'sine'
   osc.frequency.setValueAtTime(150, when)
   osc.frequency.exponentialRampToValueAtTime(48, when + 0.12)
   const gain = ctx.createGain()
-  gain.gain.setValueAtTime(0.16, when)
+  gain.gain.setValueAtTime(peak, when)
   gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.16)
   osc.connect(gain)
   gain.connect(musicGain)
