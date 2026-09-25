@@ -184,7 +184,7 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fill()
 
   ctx.beginPath()
-  ctx.roundRect(20, 20, BOARD_W - 40, BOARD_H - 40, 12)
+  ctx.roundRect(12, 12, BOARD_W - 24, BOARD_H - 24, 8)
   ctx.fillStyle = '#10241c'
   ctx.fill()
 
@@ -420,8 +420,8 @@ function mortar(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { kind: 'bl
 function frameCourses(ctx: CanvasRenderingContext2D) {
   ctx.strokeStyle = 'rgba(32, 26, 22, 0.38)'
   ctx.lineWidth = 1.5
-  const edge = 16
-  for (let x = 24; x < BOARD_W - 16; x += 86) {
+  const edge = 8
+  for (let x = 24; x < BOARD_W - 8; x += 86) {
     ctx.beginPath()
     ctx.moveTo(x, 0)
     ctx.lineTo(x + 3, edge)
@@ -429,7 +429,7 @@ function frameCourses(ctx: CanvasRenderingContext2D) {
     ctx.lineTo(x + 25, BOARD_H - edge)
     ctx.stroke()
   }
-  for (let y = 28; y < BOARD_H - 16; y += 92) {
+  for (let y = 28; y < BOARD_H - 8; y += 92) {
     ctx.beginPath()
     ctx.moveTo(0, y)
     ctx.lineTo(edge, y + 2)
@@ -641,8 +641,9 @@ function drawHead(
 function drawStreak(ctx: CanvasRenderingContext2D, streak: number, now: number, popAt: number) {
   if (streak < 3 || now - popAt > 900) return
   const t = (now - popAt) / 900
-  const alpha = t < 0.12 ? t / 0.12 : Math.max(0, 1 - (t - 0.12) / 0.88)
-  const pop = 0.82 + Math.sin(Math.min(1, t * 3) * Math.PI) * 0.28
+  const fade = t < 0.12 ? t / 0.12 : Math.max(0, 1 - (t - 0.12) / 0.88)
+  const alpha = fade * 0.42
+  const pop = 0.9 + Math.sin(Math.min(1, t * 3) * Math.PI) * 0.12
   const multiplier = streak >= 12 ? 5 : streak >= 8 ? 3 : 2
   ctx.save()
   ctx.translate(BOARD_W / 2, BOARD_H / 2)
@@ -650,11 +651,11 @@ function drawStreak(ctx: CanvasRenderingContext2D, streak: number, now: number, 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = `rgba(214, 255, 74, ${alpha})`
-  ctx.font = '800 68px Syne, Outfit, sans-serif'
-  ctx.fillText('STREAK', 0, -28)
+  ctx.font = '800 34px Syne, Outfit, sans-serif'
+  ctx.fillText('STREAK', 0, -14)
   ctx.fillStyle = `rgba(255, 244, 180, ${alpha})`
-  ctx.font = '800 40px Syne, Outfit, sans-serif'
-  ctx.fillText(`x${multiplier}`, 0, 28)
+  ctx.font = '800 20px Syne, Outfit, sans-serif'
+  ctx.fillText(`x${multiplier}`, 0, 14)
   ctx.restore()
 }
 

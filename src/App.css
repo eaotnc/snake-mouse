@@ -42,9 +42,9 @@ p {
 }
 
 .top {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding: 8px 12px;
   flex: 0 0 auto;
@@ -65,11 +65,31 @@ h1 {
   font-size: 12px;
 }
 
+.score-hero {
+  justify-self: center;
+  min-height: 1em;
+  color: var(--muted);
+  font-family: Syne, Outfit, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.score-hero strong {
+  margin-left: 6px;
+  color: var(--lime);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
 .hud {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
+  justify-self: end;
   gap: 6px;
 }
 
@@ -190,6 +210,13 @@ canvas {
   line-height: 1.45;
 }
 
+.menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .rules {
   display: grid;
   gap: 10px;
@@ -227,15 +254,20 @@ button:focus-visible {
   outline-offset: 3px;
 }
 
+button.ghost,
 button.sound {
   border: 1px solid rgba(231, 242, 234, 0.16);
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink);
+}
+
+button.sound {
   padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
 }
 
+button.ghost:hover,
 button.sound:hover {
   transform: none;
   background: rgba(255, 255, 255, 0.08);
@@ -253,6 +285,14 @@ button.sound:hover {
 
   .tag {
     font-size: 11px;
+  }
+
+  .score-hero {
+    font-size: 12px;
+  }
+
+  .score-hero strong {
+    font-size: 24px;
   }
 
   .stat,

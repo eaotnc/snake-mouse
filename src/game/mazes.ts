@@ -24,12 +24,12 @@ export type Maze = {
 function frame(): Shape {
   return {
     kind: 'frame',
-    x: 8,
-    y: 8,
-    w: BOARD_W - 16,
-    h: BOARD_H - 16,
-    r: 18,
-    thickness: 16,
+    x: 4,
+    y: 4,
+    w: BOARD_W - 8,
+    h: BOARD_H - 8,
+    r: 12,
+    thickness: 8,
   }
 }
 

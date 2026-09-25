@@ -10,9 +10,10 @@ export function boardIsPortrait() {
   return BOARD_H > BOARD_W
 }
 export const START_LENGTH = 3
-export const MAX_LENGTH = 15
+export const MAX_LENGTH = 10
 export const BAIT_TTL_MS = 2000
-export const LEVEL_TIME_MS = 20_000
+export const LEVEL_TIME_MS = 10_000
+export const WALL_SCORE_PENALTY = 10
 export const BITE_TIME_MS = 500
 
 /** Stage 1 asks for 10, then 15, 20, 25, and so on. */

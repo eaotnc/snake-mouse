@@ -10,6 +10,7 @@ import {
   LATCH_RADIUS,
   LEVEL_TIME_MS,
   MAX_LENGTH,
+  WALL_SCORE_PENALTY,
   PENALTY_MS,
   quotaFor,
   SEGMENT_PX,
@@ -244,7 +245,10 @@ function penalize(
   if (sim.phase !== 'playing' || !sim.latched) return
   if (now < sim.penaltyReadyAt) return
   if (cause === 'click') sim.clicks += 1
-  else sim.hits += 1
+  else {
+    sim.hits += 1
+    sim.score = Math.max(0, sim.score - WALL_SCORE_PENALTY)
+  }
   sim.length -= 1
   sim.penaltyReadyAt = now + PENALTY_MS
   sim.flashUntil = now + 180
@@ -267,7 +271,7 @@ function tickClock(sim: Sim, now: number, setHud: (value: Hud | ((prev: Hud) => 
   if (sim.clockAt > 0) sim.timeLeftMs -= now - sim.clockAt
   sim.clockAt = now
   const seconds = Math.max(0, sim.timeLeftMs / 1000)
-  setMusicBpm(seconds <= 15 ? 100 + ((15 - seconds) / 15) * 60 : 100)
+  setMusicBpm(seconds <= 4 ? 100 + ((4 - seconds) / 4) * 60 : 100)
   if (sim.timeLeftMs <= 0) {
     sim.timeLeftMs = 0
     sim.phase = 'gameover'

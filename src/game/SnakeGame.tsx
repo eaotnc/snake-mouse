@@ -27,9 +27,16 @@ export default function SnakeGame() {
           <h1>Snake Mouse</h1>
           <p className="tag">Don&apos;t click.</p>
         </div>
+        <div className="score-hero" aria-live="polite">
+          {hud.phase !== 'menu' && (
+            <>
+              Score <strong>{hud.score}</strong>
+            </>
+          )}
+        </div>
         <div className="hud">
           {hud.phase !== 'menu' && (
-            <div className="stats" aria-live="polite">
+            <div className="stats">
               <span className="stat">
                 Level <strong>{hud.level}</strong>
               </span>
@@ -48,15 +55,12 @@ export default function SnakeGame() {
               <span className="stat">
                 Hits <strong>{hud.hits}</strong>
               </span>
-              <span className="stat">
-                Score <strong>{hud.score}</strong>
-              </span>
               {hud.streak > 0 && (
                 <span className="stat">
                   Streak <strong>{hud.streak}</strong>
                 </span>
               )}
-              <span className={hud.timeLeft <= 15 ? 'stat danger' : 'stat'}>
+              <span className={hud.timeLeft <= 4 ? 'stat danger' : 'stat'}>
                 Time <strong>{hud.timeLeft.toFixed(1)}</strong>
               </span>
             </div>
@@ -97,23 +101,7 @@ function Overlay({
 }) {
   if (hud.phase === 'playing') return null
 
-  if (hud.phase === 'menu') {
-    return (
-      <div className="overlay">
-        <div className="card">
-          <h2>How to play</h2>
-          <ul className="rules">
-            <li>The cursor is the head. Hover to move through the maze.</li>
-            <li>Eat within 1 second for 2 points, or before the bait moves for 1. Three fast bites in a row start a streak: x2 at 3, x3 at 8, x5 at 12.</li>
-            <li>Each stage has 20 seconds. A bite adds half a second. The snake stops growing at 15.</li>
-          </ul>
-          <button type="button" onClick={onStart}>
-            Start
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (hud.phase === 'menu') return <Menu onStart={onStart} />
 
   if (hud.phase === 'levelClear') {
     return (
@@ -133,6 +121,74 @@ function Overlay({
   }
 
   return <GameOver hud={hud} onRestart={onRestart} />
+}
+
+function Menu({ onStart }: { onStart: () => void }) {
+  const [boardOpen, setBoardOpen] = useState(false)
+  if (boardOpen) return <Scoreboard onClose={() => setBoardOpen(false)} />
+
+  return (
+    <div className="overlay">
+      <div className="card">
+        <h2>How to play</h2>
+        <ul className="rules">
+          <li>The cursor is the head. Hover to move through the maze.</li>
+          <li>Eat within 1 second for 2 points, or before the bait moves for 1. Three fast bites in a row start a streak: x2 at 3, x3 at 8, x5 at 12.</li>
+          <li>Each stage has 10 seconds. A bite adds half a second. The snake stops growing at 10. Hitting a wall costs 10 points.</li>
+        </ul>
+        <div className="menu-actions">
+          <button type="button" onClick={onStart}>
+            Start
+          </button>
+          <button type="button" className="ghost" onClick={() => setBoardOpen(true)}>
+            Scoreboard
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Scoreboard({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<ScoreRow[]>([])
+  const [message, setMessage] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    void fetchScores().then((result) => {
+      setRows(result.rows)
+      setMessage(result.error)
+      setLoaded(true)
+    })
+  }, [])
+
+  return (
+    <div className="overlay">
+      <div className="card">
+        <h2>Scoreboard</h2>
+        {message && <p className="board-note">{message}</p>}
+        {loaded && rows.length === 0 && !message && <p>No scores yet.</p>}
+        <ScoreList rows={rows} />
+        <button type="button" className="ghost" onClick={onClose}>
+          Back
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ScoreList({ rows }: { rows: ScoreRow[] }) {
+  if (rows.length === 0) return null
+  return (
+    <ol className="board">
+      {rows.map((row) => (
+        <li key={row.id}>
+          <span>{row.name}</span>
+          <strong>{row.score}</strong>
+        </li>
+      ))}
+    </ol>
+  )
 }
 
 function GameOver({ hud, onRestart }: { hud: Hud; onRestart: () => void }) {
@@ -187,14 +243,7 @@ function GameOver({ hud, onRestart }: { hud: Hud; onRestart: () => void }) {
           </button>
         </form>
         {message && <p className="board-note">{message}</p>}
-        <ol className="board">
-          {rows.map((row) => (
-            <li key={row.id}>
-              <span>{row.name}</span>
-              <strong>{row.score}</strong>
-            </li>
-          ))}
-        </ol>
+        <ScoreList rows={rows} />
         <button type="button" onClick={onRestart}>
           Play again
         </button>
