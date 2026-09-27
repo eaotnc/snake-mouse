@@ -46,7 +46,7 @@ export function generateMaze(level: number): Maze {
     const walls: Shape[] = [frame()]
     let placed = 0
     let tries = 0
-    while (placed < count && tries < count * 40) {
+    while (placed < count && tries < count * 80) {
       tries += 1
       const bar = randomBar(rng)
       if (coversStart(bar) || walls.some((wall) => wall.kind === 'blob' && overlaps(wall, bar))) continue
@@ -99,7 +99,7 @@ function coversStart(bar: Extract<Shape, { kind: 'blob' }>) {
 }
 
 function overlaps(a: Extract<Shape, { kind: 'blob' }>, b: Extract<Shape, { kind: 'blob' }>) {
-  const gap = 28
+  const gap = 96
   return a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y
 }
 
