@@ -134,7 +134,7 @@ function Menu({ onStart }: { onStart: () => void }) {
         <ul className="rules">
           <li>The cursor is the head. Hover to move through the maze.</li>
           <li>Eat within 1 second for 2 points, or before the bait moves for 1. Three fast bites start a streak: the count is the multiplier, up to x10. Twelve starts 5 seconds of immortal.</li>
-          <li>Each stage has 10 seconds. A bite adds half a second. The snake stops growing at 10. Hitting a wall costs 10 points.</li>
+          <li>Each stage has 15 seconds. A bite adds half a second. The snake stops growing at 10. Hitting a wall costs 10 points.</li>
         </ul>
         <div className="menu-actions">
           <button type="button" onClick={onStart}>
