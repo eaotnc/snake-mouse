@@ -1,29 +1,58 @@
 export type SoundName = 'eat' | 'streak' | 'click' | 'wall' | 'gameover' | 'clear' | 'win' | 'start' | 'latch'
 
-const STORAGE_KEY = 'snake-mouse-muted'
+const MUSIC_KEY = 'snake-mouse-music-muted'
+const SOUND_KEY = 'snake-mouse-sound-muted'
+const LEGACY_KEY = 'snake-mouse-muted'
 
-let muted = false
+let musicMuted = false
+let soundMuted = false
 let audio: AudioContext | null = null
 let noiseBuffer: AudioBuffer | null = null
 
-export function loadMuted() {
+function readFlag(key: string, fallback: boolean) {
   try {
-    muted = localStorage.getItem(STORAGE_KEY) === '1'
+    const value = localStorage.getItem(key)
+    if (value === null) return fallback
+    return value === '1'
   } catch {
-    muted = false
+    return fallback
   }
-  return muted
 }
 
-export function getMuted() {
-  return muted
+export function loadAudioPrefs() {
+  let legacy = false
+  try {
+    legacy = localStorage.getItem(LEGACY_KEY) === '1'
+  } catch {
+    legacy = false
+  }
+  musicMuted = readFlag(MUSIC_KEY, legacy)
+  soundMuted = readFlag(SOUND_KEY, legacy)
+  return { musicMuted, soundMuted }
 }
 
-export function setMuted(value: boolean) {
-  muted = value
+export function musicIsMuted() {
+  return musicMuted
+}
+
+export function soundIsMuted() {
+  return soundMuted
+}
+
+export function setMusicMuted(value: boolean) {
+  musicMuted = value
   if (value) stopMusic()
   try {
-    localStorage.setItem(STORAGE_KEY, value ? '1' : '0')
+    localStorage.setItem(MUSIC_KEY, value ? '1' : '0')
+  } catch {
+    // Ignore private-mode storage failures.
+  }
+}
+
+export function setSoundMuted(value: boolean) {
+  soundMuted = value
+  try {
+    localStorage.setItem(SOUND_KEY, value ? '1' : '0')
   } catch {
     // Ignore private-mode storage failures.
   }
@@ -35,7 +64,7 @@ export async function unlockAudio() {
 }
 
 export function playSound(name: SoundName) {
-  if (muted) return
+  if (soundMuted) return
   const ctx = getAudio()
   if (!ctx || ctx.state !== 'running') return
   const now = ctx.currentTime
@@ -215,7 +244,7 @@ export function setMetalMusic(on: boolean) {
 }
 
 export function startMusic() {
-  if (muted || musicOn) return
+  if (musicMuted || musicOn) return
   const ctx = getAudio()
   if (!ctx || ctx.state !== 'running') return
   musicOn = true

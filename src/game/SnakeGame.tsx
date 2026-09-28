@@ -1,23 +1,31 @@
 import { useEffect, useState } from 'react'
 import { quotaFor } from './constants'
 import { fetchScores, saveScore, type ScoreRow } from './scores'
-import { getMuted, loadMuted, setMuted, startMusic, unlockAudio } from './sound'
+import { loadAudioPrefs, musicIsMuted, setMusicMuted, setSoundMuted, soundIsMuted, startMusic, unlockAudio } from './sound'
 import { useSnakeGame, type Hud } from './useSnakeGame'
 
 export default function SnakeGame() {
   const { canvasRef, hud, startGame, nextLevel, onPointerMove, onPointerLeave, onPointerDown } =
     useSnakeGame()
-  const [muted, setMutedOn] = useState(loadMuted)
+  const [musicMuted, setMusicMutedOn] = useState(() => loadAudioPrefs().musicMuted)
+  const [soundMuted, setSoundMutedOn] = useState(() => soundIsMuted())
 
-  const toggleSound = () => {
-    const next = !getMuted()
-    setMuted(next)
-    setMutedOn(next)
+  const toggleMusic = () => {
+    const next = !musicIsMuted()
+    setMusicMuted(next)
+    setMusicMutedOn(next)
     if (!next) {
       void unlockAudio().then(() => {
         if (hud.phase === 'playing' || hud.phase === 'levelClear') startMusic()
       })
     }
+  }
+
+  const toggleSound = () => {
+    const next = !soundIsMuted()
+    setSoundMuted(next)
+    setSoundMutedOn(next)
+    if (!next) void unlockAudio()
   }
 
   return (
@@ -65,8 +73,11 @@ export default function SnakeGame() {
               </span>
             </div>
           )}
-          <button type="button" className="sound" aria-pressed={muted} onClick={toggleSound}>
-            {muted ? 'Sound off' : 'Sound on'}
+          <button type="button" className="sound" aria-pressed={musicMuted} onClick={toggleMusic}>
+            {musicMuted ? 'Music off' : 'Music on'}
+          </button>
+          <button type="button" className="sound" aria-pressed={soundMuted} onClick={toggleSound}>
+            {soundMuted ? 'Sound off' : 'Sound on'}
           </button>
         </div>
       </header>
@@ -185,6 +196,7 @@ function ScoreList({ rows }: { rows: ScoreRow[] }) {
             <li key={row.id}>
               <span>{row.name}</span>
               <span>Level {row.level}</span>
+              <span>Clicks {row.clicks}</span>
               <strong>{row.score}</strong>
             </li>
       ))}
@@ -206,7 +218,7 @@ function GameOver({ hud, onRestart }: { hud: Hud; onRestart: () => void }) {
   }, [])
 
   const submit = async () => {
-    const error = await saveScore(name.trim().slice(0, 16), hud.score, hud.level)
+    const error = await saveScore(name.trim().slice(0, 16), hud.score, hud.level, hud.clicks)
     if (error) {
       setMessage(error)
       return

@@ -23,13 +23,15 @@ function scoresApi(): Plugin {
           name text NOT NULL,
           score integer NOT NULL,
           level integer NOT NULL DEFAULT 1,
+          clicks integer NOT NULL DEFAULT 0,
           created_at timestamptz NOT NULL DEFAULT now()
         )
       `
       await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS level integer NOT NULL DEFAULT 1`
+      await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS clicks integer NOT NULL DEFAULT 0`
       if (req.method === 'GET') {
         const rows = await sql`
-          SELECT id, name, score, level
+          SELECT id, name, score, level, clicks
           FROM scores
           ORDER BY score DESC, created_at ASC
           LIMIT 10
@@ -39,15 +41,16 @@ function scoresApi(): Plugin {
       }
       if (req.method === 'POST') {
         const raw = await readBody(req)
-        const body = JSON.parse(raw) as { name?: unknown; score?: unknown; level?: unknown }
+        const body = JSON.parse(raw) as { name?: unknown; score?: unknown; level?: unknown; clicks?: unknown }
         const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : ''
         const score = typeof body.score === 'number' ? Math.floor(body.score) : NaN
         const level = typeof body.level === 'number' ? Math.floor(body.level) : NaN
-        if (!name || !Number.isFinite(score) || score < 0 || !Number.isFinite(level) || level < 1) {
-          send(res, 400, { error: 'Name, score, and level are required.' })
+        const clicks = typeof body.clicks === 'number' ? Math.floor(body.clicks) : NaN
+        if (!name || !Number.isFinite(score) || score < 0 || !Number.isFinite(level) || level < 1 || !Number.isFinite(clicks) || clicks < 0) {
+          send(res, 400, { error: 'Name, score, level, and clicks are required.' })
           return
         }
-        await sql`INSERT INTO scores (name, score, level) VALUES (${name}, ${score}, ${level})`
+        await sql`INSERT INTO scores (name, score, level, clicks) VALUES (${name}, ${score}, ${level}, ${clicks})`
         send(res, 201, { ok: true })
         return
       }
