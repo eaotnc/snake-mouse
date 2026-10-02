@@ -164,7 +164,7 @@ function Scoreboard({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void fetchScores().then((result) => {
       setRows(result.rows)
-      setMessage(resulror)
+      setMessage(result.error)
       setLoaded(true)
     })
   }, [])
