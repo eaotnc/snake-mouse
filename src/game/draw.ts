@@ -659,10 +659,8 @@ function drawStreak(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = 'rgba(214, 255, 74, 0.82)'
-  ctx.font = '800 28px Syne, Outfit, sans-serif'
-  ctx.fillText('Steak', 0, -22)
   ctx.font = '800 40px Syne, Outfit, sans-serif'
-  ctx.fillText(`${streak} x ${multiplier}`, 0, 16)
+  ctx.fillText(`${streak} x ${multiplier}`, 0, 0)
   ctx.restore()
 }
 
