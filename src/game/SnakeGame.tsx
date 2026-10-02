@@ -63,11 +63,7 @@ export default function SnakeGame() {
               <span className="stat">
                 Hits <strong>{hud.hits}</strong>
               </span>
-              {hud.streak > 0 && (
-                <span className="stat">
-                  Streak <strong>{hud.streak}</strong>
-                </span>
-              )}
+
               <span className={hud.timeLeft <= 4 ? 'stat danger' : 'stat'}>
                 Time <strong>{hud.timeLeft.toFixed(1)}</strong>
               </span>
@@ -168,7 +164,7 @@ function Scoreboard({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void fetchScores().then((result) => {
       setRows(result.rows)
-      setMessage(result.error)
+      setMessage(resulror)
       setLoaded(true)
     })
   }, [])
@@ -193,12 +189,12 @@ function ScoreList({ rows }: { rows: ScoreRow[] }) {
   return (
     <ol className="board">
       {rows.map((row) => (
-            <li key={row.id}>
-              <span>{row.name}</span>
-              <span>Level {row.level}</span>
-              <span>Clicks {row.clicks}</span>
-              <strong>{row.score}</strong>
-            </li>
+        <li key={row.id}>
+          <span>{row.name}</span>
+          <span>Level {row.level}</span>
+          <span>Clicks {row.clicks}</span>
+          <strong>{row.score}</strong>
+        </li>
       ))}
     </ol>
   )
