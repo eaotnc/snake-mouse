@@ -26,4 +26,5 @@ export const PENALTY_MS = 400
 export const HEAD_RADIUS = 13
 export const HEAD_HIT_RADIUS = 10
 export const BAIT_RADIUS = 12
+
 export const LATCH_RADIUS = 36
